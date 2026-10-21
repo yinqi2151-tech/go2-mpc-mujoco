@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv*/
+.idea/
+.vscode/
+
+# 单段录像只保留拼好的 compare.mp4
+results/video_*.mp4
+results/walk*.mp4
