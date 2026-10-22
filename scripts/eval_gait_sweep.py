@@ -14,6 +14,10 @@ import argparse
 import csv
 import itertools
 import os
+# OpenBLAS 默认按 CPU 核数开线程；MPC 里的矩阵很小，多线程只会空转抢 CPU，
+# 多进程并行评测时还会互相拖慢。必须在 import numpy 之前设置。
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 import sys
 from multiprocessing import Pool
 
