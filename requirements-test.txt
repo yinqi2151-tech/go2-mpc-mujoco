@@ -1,0 +1,9 @@
+# 运行测试所需的依赖（MuJoCo 版本，不需要 Isaac Gym / GPU）
+numpy
+scipy
+cvxpy
+osqp
+mujoco
+matplotlib
+threadpoolctl
+pytest
