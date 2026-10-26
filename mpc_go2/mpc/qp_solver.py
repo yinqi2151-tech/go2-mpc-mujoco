@@ -8,6 +8,14 @@
 import numpy as np
 import cvxpy as cp
 import scipy.linalg
+import scipy.sparse as sp
+
+try:  # 直接调用 OSQP（v0.2.0 起的默认求解路径）；osqp 0.6 与 1.x 的参数名不同
+    import osqp
+    _OSQP_V1 = int(osqp.__version__.split(".")[0]) >= 1
+except Exception:  # pragma: no cover - 没装 osqp 时退回 cvxpy
+    osqp = None
+    _OSQP_V1 = False
 from typing import List, Tuple, Dict, Optional, TYPE_CHECKING
 
 # 导入统一配置
@@ -635,8 +643,12 @@ class QPMPCSolver:
         
         return P, q, A_eq, b_eq, A_ineq, b_ineq, lb, ub
     
-    def solve(self) -> np.ndarray:
+    def solve_cvxpy(self) -> np.ndarray:
         """
+        【参考实现，v0.1 的求解路径】每次重新构建 cvxpy 问题再调用 OSQP。
+        v0.2.0 起默认改用 solve()（直接调用 OSQP + 稀疏矩阵 + 热启动），
+        这里保留原实现，供 tests/test_solver_equivalence.py 做结果一致性对照。
+
         求解 QP 问题，返回预测时域上的足端力序列
         
         返回:
@@ -710,4 +722,142 @@ class QPMPCSolver:
                     forces[i, foot] = solution[control_start + contact_idx*3:control_start + (contact_idx+1)*3]
                     contact_idx += 1
         
+        return forces
+
+    # ==================================================================
+    # v0.2.0：直接调用 OSQP 的快速求解路径
+    # ==================================================================
+    # 与 solve_cvxpy() 求解的是同一个 QP，区别只在实现方式：
+    #   1. 不再每次构建 cvxpy 问题（cvxpy 的建模与规约约占 v0.1 单次耗时的一半）；
+    #   2. 矩阵用稀疏格式按块拼装，离散化结果按 (yaw_ref, dt) 缓存，不重复算矩阵指数；
+    #   3. 变量结构固定：每一步都为 4 条腿保留力变量，摆动腿用约束把力压为 0。
+    #      这样矩阵的稀疏结构每次都相同，可以只 update 数值、复用分解并热启动；
+    #      摆动腿的力恰为 0、正则项也为 0，最优解与 v0.1 的写法完全相同。
+    #   4. 收敛精度与 cvxpy 默认值相同（1e-5），并开启 polishing，保证解与 v0.1 一致。
+    #      曾试过放宽到 1e-3（更快），但约束饱和时与 cvxpy 的差异达到约 1.9 N，
+    #      被 tests/test_solver_equivalence.py 拦下，所以保留 1e-5。
+    _OSQP_SETTINGS = dict(eps_abs=1e-5, eps_rel=1e-5, max_iter=10000, verbose=False)
+
+    def _discrete_a(self, yaw_ref: float, dt: float) -> np.ndarray:
+        """离散化 A = expm(A_c·dt)，按 (yaw_ref, dt) 缓存。与 c2d() 的结果完全一致。"""
+        if not hasattr(self, "_expm_cache"):
+            self._expm_cache = {}
+        key = (round(float(yaw_ref), 12), round(float(dt), 12))
+        E = self._expm_cache.get(key)
+        if E is None:
+            if len(self._expm_cache) > 256:
+                self._expm_cache.clear()
+            E = scipy.linalg.expm(self.build_a_matrix_continuous(yaw_ref) * float(dt))
+            self._expm_cache[key] = E
+        return E
+
+    def build_sparse_qp(self):
+        """
+        构建固定结构的稀疏 QP：  min ½zᵀPz + qᵀz   s.t.  l ≤ Az ≤ u
+            z = [x_1 … x_N（每步 12 维状态）, u_1 … u_N（每步 4 腿 × 3 维力）]
+        返回 P, q, A, l, u（P、A 为 scipy CSC 稀疏矩阵）。
+        """
+        N = len(self.contact_trajectory)
+        nx, nu = 12, 12
+        n_x, n_u = N * nx, N * nu
+        n = n_x + n_u
+        contact = np.asarray(self.contact_trajectory, dtype=bool)
+
+        # ---- 代价 ----
+        P = sp.diags(np.concatenate([np.tile(self.weights, N), np.full(n_u, self.alpha)]), format="csc")
+        ref = np.asarray(self.state_trajectory, dtype=np.float64)
+        q = np.concatenate([-(self.weights[None, :] * ref).ravel(), np.zeros(n_u)])
+
+        # ---- 动力学等式约束：x_k - A_k x_{k-1} - Σ_j B_kj u_kj = g·dt（k=0 时右侧再加 A_0 x0）----
+        rows, cols, vals = [], [], []
+        b_eq = np.zeros(n_x)
+        eye_idx = np.arange(n_x)
+        rows.append(eye_idx); cols.append(eye_idx); vals.append(np.ones(n_x))
+        rr, cc = np.meshgrid(np.arange(nx), np.arange(nx), indexing="ij")
+        rb, cb = np.meshgrid(np.arange(nx), np.arange(3), indexing="ij")
+        all_legs = np.ones(4, dtype=bool)
+        B_c_all, _ = self.build_b_blocks_continuous(self.current_yaw, all_legs)
+        for k in range(N):
+            dt = float(self.dt_trajectory[k])
+            E = self._discrete_a(ref[k, 2], dt)
+            if k == 0:
+                b_eq[0:nx] = E @ self.x0
+            else:
+                rows.append((k * nx + rr).ravel()); cols.append(((k - 1) * nx + cc).ravel()); vals.append(-E.ravel())
+            b_eq[k * nx + 9:k * nx + 12] += self.g * dt
+            for j in range(4):
+                B_d = E @ B_c_all[j] * dt
+                rows.append((k * nx + rb).ravel())
+                cols.append((n_x + (k * 4 + j) * 3 + cb).ravel())
+                vals.append(-B_d.ravel())
+        A_eq = sp.csc_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(n_x, n))
+
+        # ---- 力约束：每个 (k, 腿) 7 行 ----
+        #   行 0：fz            支撑腿 [0, fmax]，摆动腿 [0, 0]
+        #   行 1-4：±fx-μfz、±fy-μfz ≤ 0（摩擦锥）；摆动腿放开为 (-∞, ∞)
+        #   行 5-6：fx、fy     支撑腿 (-∞, ∞)，摆动腿 [0, 0]
+        # 摆动腿用单独的等式把三个分量压为 0，而不是靠摩擦锥“夹”出 0，
+        # 这样约束不退化，OSQP 的 polishing 能稳定成功、解的精度与 cvxpy 一致。
+        m = N * 4
+        base = n_x + np.arange(m) * 3
+        r = np.arange(m) * 7
+        mu = self.mu
+        one = np.ones(m)
+        i_rows = np.concatenate([r, r + 1, r + 1, r + 2, r + 2, r + 3, r + 3, r + 4, r + 4, r + 5, r + 6])
+        i_cols = np.concatenate([base + 2, base, base + 2, base, base + 2, base + 1, base + 2, base + 1, base + 2,
+                                 base, base + 1])
+        i_vals = np.concatenate([one, one, -mu * one, -one, -mu * one, one, -mu * one, -one, -mu * one, one, one])
+        A_in = sp.csc_matrix((i_vals, (i_rows, i_cols)), shape=(7 * m, n))
+        c = contact.ravel()
+        l_in = np.full(7 * m, -np.inf)
+        u_in = np.full(7 * m, np.inf)
+        l_in[r] = 0.0
+        u_in[r] = np.where(c, self.max_force, 0.0)
+        for off in (1, 2, 3, 4):
+            u_in[r + off] = np.where(c, 0.0, np.inf)
+        for off in (5, 6):
+            l_in[r + off] = np.where(c, -np.inf, 0.0)
+            u_in[r + off] = np.where(c, np.inf, 0.0)
+
+        A = sp.vstack([A_eq, A_in], format="csc")
+        A.sort_indices()
+        l = np.concatenate([b_eq, l_in])
+        u = np.concatenate([b_eq, u_in])
+        return P, q, A, l, u
+
+    def solve(self) -> np.ndarray:
+        """
+        求解 QP，返回 [N, 4, 3] 足端力序列（与 solve_cvxpy() 相同的问题与输出格式）。
+
+        v0.2.0：直接调用 OSQP。稀疏结构不变时只更新数值（复用分解、自动热启动），
+        结构变化（例如预测步数改变）时重新 setup。OSQP 不可用或求解失败时退回 solve_cvxpy()。
+        """
+        if osqp is None:
+            return self.solve_cvxpy()
+        P, q, A, l, u = self.build_sparse_qp()
+        N = len(self.contact_trajectory)
+        pattern = (A.shape, A.nnz)
+        try:
+            if getattr(self, "_osqp", None) is None or getattr(self, "_osqp_pattern", None) != pattern \
+                    or not np.array_equal(getattr(self, "_osqp_indices", None), A.indices):
+                settings = dict(self._OSQP_SETTINGS)
+                settings["polishing" if _OSQP_V1 else "polish"] = True
+                self._osqp = osqp.OSQP()
+                self._osqp.setup(P, q, A, l, u, **settings)
+                self._osqp_pattern = pattern
+                self._osqp_indices = A.indices.copy()
+            else:
+                self._osqp.update(q=q, l=l, u=u, Ax=A.data)
+            res = self._osqp.solve(raise_error=False) if _OSQP_V1 else self._osqp.solve()
+        except Exception as e:  # pragma: no cover
+            print(f"[QPMPC] OSQP 直接求解出错（{e!r}），退回 cvxpy")
+            self._osqp = None
+            return self.solve_cvxpy()
+        status = str(getattr(res.info, "status", "")).lower()
+        if res.x is None or not np.all(np.isfinite(res.x)) or "solved" not in status or "inaccurate" in status:
+            print(f"[QPMPC] Warning: OSQP status: {status}，退回 cvxpy")
+            self._osqp = None
+            return self.solve_cvxpy()
+        forces = np.asarray(res.x[N * 12:], dtype=np.float64).reshape(N, 4, 3).copy()
+        forces[~np.asarray(self.contact_trajectory, dtype=bool)] = 0.0  # 摆动腿恰为 0（去掉 1e-9 量级的数值残差）
         return forces

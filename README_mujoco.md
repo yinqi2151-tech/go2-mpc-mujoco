@@ -23,7 +23,7 @@ pip install mujoco cvxpy osqp numpy scipy matplotlib
 
 cd mpc_go2
 python scripts/run_mpc_walk_mujoco.py --render              # 打开可视化窗口，看机器人走
-python scripts/run_mpc_walk_mujoco.py --fix-xref --render   # 启用位置参考修正
+python scripts/run_mpc_walk_mujoco.py --no-fix-xref --render  # 关闭位置参考修正，看原始行为
 python scripts/run_mpc_walk_mujoco.py --vx 0.3 --duty 0.6   # 换参数，不开窗口，只打印指标
 python scripts/eval_gait_sweep.py                           # 完整评测，约 10–15 分钟
 python scripts/make_report.py                               # 画图
@@ -34,7 +34,7 @@ python scripts/make_report.py                               # 画图
 ```bash
 pip install imageio imageio-ffmpeg pillow                   # 只需装一次
 
-python scripts/run_mpc_walk_mujoco.py --mpc-every 4 --fix-xref --video results/walk.mp4 --plot results/walk.png
+python scripts/run_mpc_walk_mujoco.py --mpc-every 4 --video results/walk.mp4 --plot results/walk.png
 python scripts/make_compare_video.py                        # 一键生成修正前后左右对比视频 results/compare.mp4
 ```
 
@@ -64,8 +64,9 @@ python scripts/make_compare_video.py                        # 一键生成修正
 
 1. **移植后行为与原版一致**：机器人能稳定小跑，机身高度保持在约 0.31 m；速度跟踪不足的问题也复现了（目标 0.5 m/s 时只到约 0.28 m/s）。
 2. **找到速度跟踪不足的原因**：`control/locomotion.py` 生成 MPC 参考轨迹时，预测时域内每一步的位置参考 `x_ref` 都是 0，也就是“当前位置”。而位置权重 `q_x = 2.0` 是速度权重 `q_vx = 0.2` 的 10 倍，所以 MPC 一边被要求往前走，一边被更强地要求留在原地，最终折中成较慢的速度。
-3. **修正**：参考 MIT Cheetah，让位置参考随期望速度向前推进：`x_ref[k] = vx_ref × (k+1) × dt`。用 `--fix-xref` 开启，没有改动原文件。目标 0.5 m/s 时，速度跟踪从约 55% 提升到约 81%，速度误差（RMSE）从 0.22 降到 0.10 m/s；代价是俯仰角波动从约 0.7° 增加到约 2.3°，仍然很小。
+3. **修正**：参考 MIT Cheetah，让位置参考随期望速度向前推进：`x_ref[k] = vx_ref × (k+1) × dt`。最初用 `--fix-xref` 开启、没有改动原文件；v0.2.0 起默认开启，用 `--no-fix-xref` 关闭。目标 0.5 m/s 时，速度跟踪从约 55% 提升到约 81%，速度误差（RMSE）从 0.22 降到 0.10 m/s；代价是俯仰角波动从约 0.7° 增加到约 2.3°，仍然很小。
 4. **求解耗时**：每次 MPC 求解在 Python + cvxpy 下约 40–50 ms，超过 50 Hz（20 ms）的实时预算。主要原因是每次都重新构建 cvxpy 问题；要上真机，需要改成 OSQP 直接接口加热启动，或用 C++ 实现。仿真不受实时性限制，所以不影响这里的结果。
+   **v0.2.0 更新**：已改为直接调用 OSQP（稀疏矩阵、离散化缓存、固定稀疏结构下只更新数值并热启动），同一台机器上中位数从约 30 ms 降到约 9 ms，与原实现的解一致（差异约 1e-6 N 量级），32 组评测结果逐项不变。
 5. **原 README 说 MPC 以 50 Hz 运行，但原脚本实际每个控制周期（200 Hz）都在求解**。MuJoCo 版本用 `--mpc-every 4` 实现真正的 50 Hz；两种频率下的行走效果接近。
 
 完整数据见 `results/evaluation_report.md`。

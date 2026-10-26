@@ -7,9 +7,15 @@
 2. 求解耗时：统计 MPC 单次求解的 p50 / p95，写入 test-reports/perf_summary.json，
    并与 50 Hz 控制的 20 ms 预算对比。
 
-注意：耗时和机器相关。CI 只对一个宽松上限做断言（默认 200 ms，可用
-MPC_P95_LIMIT_MS 调整），“是否满足 20 ms 预算”只记录在报告里，不让测试失败——
-目前 Python + cvxpy 实现已知超出预算（约 21–45 ms），这是待优化项而不是回归。
+3. 加速比：同一台机器上，新求解路径（直接调用 OSQP）必须比 v0.1 的 cvxpy 路径快 2 倍以上（实测约 3.5 倍）。
+
+v0.1 → v0.2.0 的变化：v0.1 每次求解约 30 ms（p95 约 37 ms），超出 20 ms 预算，
+当时这里只断言一个 200 ms 的宽松上限。v0.2.0 优化后 p50 约 9 ms、p95 约 14 ms，于是把断言收紧为
+“p95 ≤ 20 ms”，把优化成果锁住：以后任何改动让求解重新变慢，测试就会失败。
+
+耗时和机器相关：本地默认按 20 ms 预算断言；共享的 CI 机器偶尔较慢，可以用
+MPC_P95_LIMIT_MS 适当放宽。加速比是同一台机器上的相对值，不受机器快慢影响，
+所以在任何机器上都按 2 倍断言。
 """
 import contextlib
 import io
@@ -47,30 +53,48 @@ def test_main_script_limits_blas_threads():
     assert all(n == 1 for n in threads), f"BLAS 线程数应为 1，实际为 {threads}"
 
 
-def test_mpc_solve_time(trot_gait):
-    n_runs = int(os.environ.get("MPC_PERF_RUNS", "30"))
-    limit_ms = float(os.environ.get("MPC_P95_LIMIT_MS", "200"))
+def _time_solves(trot_gait, method: str, n_runs: int):
+    """
+    模拟闭环：同一个求解器连续求解，每次推进步态相位并扰动一下当前速度。
+    返回每次耗时（ms，已去掉第一次的预热）。
+    """
+    solver = None
     times = []
-    for i in range(n_runs):
-        contacts = contact_table(trot_gait, iteration=i % 20)
-        solver = make_solver(contacts, vx=0.4, vx_ref=0.5)
-        with contextlib.redirect_stdout(io.StringIO()):
+    with contextlib.redirect_stdout(io.StringIO()):
+        for i in range(n_runs):
+            contacts = contact_table(trot_gait, iteration=i % 20)
+            if solver is None:
+                solver = make_solver(contacts, vx=0.4, vx_ref=0.5)
+            solver.set_contact_trajectory(contacts)
+            solver.x0[9] = 0.4 + 0.05 * np.sin(i)
             t0 = time.perf_counter()
-            solver.solve()
+            getattr(solver, method)()
             times.append((time.perf_counter() - t0) * 1e3)
-    times = np.array(times[1:])  # 去掉第一次（含导入和缓存预热）
+    return np.array(times[1:])
+
+
+def test_mpc_solve_time(trot_gait):
+    n_runs = int(os.environ.get("MPC_PERF_RUNS", "60"))
+    limit_ms = float(os.environ.get("MPC_P95_LIMIT_MS", str(REALTIME_BUDGET_MS)))
+    fast = _time_solves(trot_gait, "solve", n_runs)
+    ref = _time_solves(trot_gait, "solve_cvxpy", max(10, n_runs // 4))
+    speedup = float(np.median(ref) / np.median(fast))
     report = dict(
-        runs=int(times.size),
-        p50_ms=round(float(np.percentile(times, 50)), 2),
-        p95_ms=round(float(np.percentile(times, 95)), 2),
-        max_ms=round(float(times.max()), 2),
+        runs=int(fast.size),
+        p50_ms=round(float(np.percentile(fast, 50)), 2),
+        p95_ms=round(float(np.percentile(fast, 95)), 2),
+        max_ms=round(float(fast.max()), 2),
+        cvxpy_p50_ms=round(float(np.percentile(ref, 50)), 2),
+        speedup_vs_cvxpy=round(speedup, 2),
         budget_ms=REALTIME_BUDGET_MS,
-        within_budget=bool(np.percentile(times, 95) <= REALTIME_BUDGET_MS),
+        within_budget=bool(np.percentile(fast, 95) <= REALTIME_BUDGET_MS),
         platform=sys.platform,
     )
     os.makedirs(REPORT_DIR, exist_ok=True)
     with open(os.path.join(REPORT_DIR, "perf_summary.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
-    print(f"\nMPC 求解耗时：p50 {report['p50_ms']} ms，p95 {report['p95_ms']} ms，"
+    print(f"\nMPC 求解耗时：p50 {report['p50_ms']} ms，p95 {report['p95_ms']} ms"
+          f"（v0.1 的 cvxpy 路径 p50 {report['cvxpy_p50_ms']} ms，加速 {report['speedup_vs_cvxpy']} 倍），"
           f"预算 {REALTIME_BUDGET_MS} ms，{'满足' if report['within_budget'] else '超出'}")
     assert report["p95_ms"] <= limit_ms, f"p95 {report['p95_ms']} ms 超过上限 {limit_ms} ms"
+    assert speedup >= 2.0, f"相对 cvxpy 只加速了 {speedup:.2f} 倍，低于 2 倍"

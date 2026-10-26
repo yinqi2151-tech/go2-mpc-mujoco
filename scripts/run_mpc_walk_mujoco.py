@@ -83,7 +83,7 @@ class RunParams:
     duty: float = 0.65       # 支撑相占比（duty factor）
     duration: float = 12.0   # 控制阶段总时长 s（含 1.5 s 站立）
     mpc_every: int = 1       # 每几个控制周期解一次 MPC；1 = 原脚本行为（每 5 ms 都解）
-    fix_xref: bool = False   # 修正：让 MPC 的位置参考随期望速度向前推进（见 README_mujoco.md）
+    fix_xref: bool = True    # 修正：让 MPC 的位置参考随期望速度向前推进（v0.2.0 起默认开启，见 README_mujoco.md）
     render: bool = False
     verbose: bool = False
     video: str = ""          # 录制 MP4 的路径；空字符串表示不录
@@ -390,7 +390,11 @@ def main():
     ap.add_argument("--duty", type=float, default=0.65)
     ap.add_argument("--duration", type=float, default=12.0)
     ap.add_argument("--mpc-every", type=int, default=1)
-    ap.add_argument("--fix-xref", action="store_true", help="启用位置参考修正")
+    ap.add_argument("--no-fix-xref", dest="fix_xref", action="store_false",
+                    help="关闭位置参考修正（复现原始行为，用于对照）")
+    ap.add_argument("--fix-xref", dest="fix_xref", action="store_true",
+                    help="启用位置参考修正（v0.2.0 起已是默认，保留此参数兼容旧命令）")
+    ap.set_defaults(fix_xref=True)
     ap.add_argument("--render", action="store_true")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--save", type=str, default="", help="把逐步日志存成 .npz")

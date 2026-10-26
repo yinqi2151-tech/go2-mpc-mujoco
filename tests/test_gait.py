@@ -66,12 +66,12 @@ def test_current_contact_matches_first_row_of_mpc_table(trot_gait):
         np.testing.assert_array_equal(now, table[0])
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "已知问题：get_swing_state() 比 get_contact_state() 晚一拍（约 20 ms）。"
-    "主循环用时间计算摆动相位、只在没有起摆时间时才回退到 get_swing_state()，"
-    "因此目前不影响仿真结果。strict=True：一旦有人修好，这个用例会提示把标记去掉。"))
 def test_swing_phase_consistent_with_contact(trot_gait):
-    """摆动相位应在腿离地的那一步从 0 开始，在腿着地时回到 0。"""
+    """
+    摆动相位应在腿离地的那一步从 0 开始、摆动中逐步增加，在腿着地时回到 0。
+    v0.1 中 get_swing_state() 比 get_contact_state() 晚一拍，当时用 xfail(strict=True) 记录；
+    v0.2.0 修复后该用例出现 XPASS，按约定去掉了 xfail 标记，现在是普通回归用例。
+    """
     for it in range(HORIZON):
         trot_gait.set_iterations(it)
         contact = trot_gait.get_contact_state()
@@ -80,5 +80,7 @@ def test_swing_phase_consistent_with_contact(trot_gait):
         trot_gait.set_iterations(it - 1 if it > 0 else HORIZON - 1)
         prev_contact = trot_gait.get_contact_state()
         trot_gait.set_iterations(it)
+        lifted = (prev_contact == 1) & (contact == 0)
         still_swinging = (prev_contact == 0) & (contact == 0)
+        assert np.all(swing[lifted] == 0.0), f"第 {it} 步：刚离地的腿相位应从 0 开始"
         assert np.all(swing[still_swinging] > 0.0), f"第 {it} 步：摆动中的腿相位没有前进"

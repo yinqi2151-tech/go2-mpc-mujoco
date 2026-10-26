@@ -179,9 +179,11 @@ class OffsetDurationGait:
         swing_durations = self.n_iterations - self.durations
         
         for j in range(4):
-            # 计算当前腿在该步态周期中的进度
-            progress = (self._iteration - self.offsets[j]) % self.n_iterations
-            
+            # 计算当前腿在该步态周期中的进度。
+            # 与 get_contact_state() / get_mpc_table() 一样用 _iteration + 1，
+            # 否则摆动相位会比接触状态晚一拍（v0.2.0 修复，见 tests/test_gait.py）。
+            progress = (self._iteration + 1 - self.offsets[j]) % self.n_iterations
+
             # 如果在摆动相（progress >= duration）
             if progress >= self.durations[j] and swing_durations[j] > 0:
                 # 摆动进度 = (progress - duration) / swing_duration

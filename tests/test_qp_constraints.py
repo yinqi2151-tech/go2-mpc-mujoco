@@ -115,3 +115,21 @@ def test_discretization_integrates_velocity(mpc_cfg):
     A_d, _ = solver.c2d(A, [], DT)
     for pos, vel in [(3, 9), (4, 10), (5, 11)]:
         assert A_d[pos, vel] == pytest.approx(DT, rel=1e-6)
+
+
+def test_sparse_problem_structure(trot_gait):
+    """
+    v0.2.0 的稀疏写法：每步为 4 条腿都保留力变量（20 × 12 = 240 个），加上 240 个状态变量，共 480 个；
+    其中摆动腿的 84 个力变量（7 步 × 2 腿 × 3 分量 × 2 组对角腿）被约束为 0，自由变量仍是 396 个。
+    稀疏结构必须与相位无关，否则无法复用分解和热启动。
+    """
+    s0 = make_solver(contact_table(trot_gait, 0))
+    P, q, A, l, u = s0.build_sparse_qp()
+    assert P.shape == (480, 480)
+    assert A.shape == (HORIZON * 12 + HORIZON * 4 * 7, 480)
+    pinned = np.isclose(l, 0.0) & np.isclose(u, 0.0)
+    assert pinned[HORIZON * 12:].sum() == (HORIZON * 4 - 52) * 3
+    s1 = make_solver(contact_table(trot_gait, 7))
+    A1 = s1.build_sparse_qp()[2]
+    np.testing.assert_array_equal(A.indices, A1.indices)
+    np.testing.assert_array_equal(A.indptr, A1.indptr)

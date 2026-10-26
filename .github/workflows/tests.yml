@@ -21,6 +21,8 @@ jobs:
       # Windows 上 Python 默认用 cp1252 输出，打印中文会报 UnicodeEncodeError
       PYTHONUTF8: "1"
       PYTHONIOENCODING: utf-8
+      # 共享 CI 机器的计时波动较大：耗时上限放宽到 40 ms；加速比断言（≥2 倍）不受影响
+      MPC_P95_LIMIT_MS: "40"
     steps:
       - uses: actions/checkout@v4
 

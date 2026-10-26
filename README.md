@@ -11,7 +11,8 @@ Unitree Go2 四足机器人的凸 MPC 行走控制器。原版在 Isaac Gym 中�
 - 移植后控制器代码零改动，32 组参数（4 个目标速度 × 4 个支撑相占比 × 修正前后）全部稳定小跑，无摔倒。
 - 定位速度跟踪不足的根因：MPC 参考轨迹中的位置参考恒为 0，而位置权重是速度权重的 10 倍。
 - 参考 MIT Cheetah 让位置参考随期望速度推进后，16 组参数全部改善：平均速度跟踪 60.5% → 90.1%，速度 RMSE 0.145 → 0.053 m/s。
-- 局限：仅为仿真结果；Python + cvxpy 单次 MPC 求解约 35–45 ms，尚不满足 50 Hz 实时要求。
+- 求解耗时（v0.2.0）：改为直接调用 OSQP（稀疏矩阵 + 热启动）后，同一台机器上单次求解中位数从约 30 ms 降到约 9 ms（约 3.5 倍），解与原 cvxpy 实现一致；闭环仿真中 95 分位约 20 ms，刚好处在 50 Hz 预算边缘。
+- 局限：仅为仿真结果。
 
 详细说明见 [README_mujoco.md](README_mujoco.md)，完整评测见 [results/evaluation_report.md](results/evaluation_report.md)。
 
@@ -25,7 +26,8 @@ conda activate go2mj
 pip install mujoco cvxpy osqp numpy scipy matplotlib imageio imageio-ffmpeg pillow
 
 python scripts/run_mpc_walk_mujoco.py --render                 # 打开窗口观看
-python scripts/run_mpc_walk_mujoco.py --mpc-every 4 --fix-xref  # 启用修正，打印指标
+python scripts/run_mpc_walk_mujoco.py --mpc-every 4            # 打印指标（v0.2.0 起默认启用 x_ref 修正）
+python scripts/run_mpc_walk_mujoco.py --mpc-every 4 --no-fix-xref  # 关闭修正，复现原始行为
 python scripts/make_compare_video.py                           # 生成修正前后对比视频
 python scripts/eval_gait_sweep.py                              # 完整 32 组评测
 ```
@@ -38,7 +40,8 @@ python scripts/eval_gait_sweep.py                              # 完整 32 组�
 | --- | --- | --- |
 | 单元测试 | `tests/test_qp_constraints.py`、`test_gait.py`、`test_swing_trajectory.py`、`test_frames.py` | QP 解满足力上下限与摩擦锥、问题规模 396 维；步态相位与占空比；摆动轨迹边界条件；四元数顺序 |
 | 回归测试 | `tests/test_regression_sim.py` | MuJoCo 闭环跑 12 s：不摔倒、速度跟踪 ≥ 75%、RMSE ≤ 0.15 m/s、机身高度与姿态 |
-| 性能测试 | `tests/test_performance.py` | BLAS 线程数必须为 1（防止线程超订复发）；MPC 求解耗时 p50 / p95 |
+| 性能测试 | `tests/test_performance.py` | BLAS 线程数必须为 1（防止线程超订复发）；MPC 求解 p95 ≤ 20 ms，且比 v0.1 的 cvxpy 实现快 2 倍以上 |
+| 等价性测试 | `tests/test_solver_equivalence.py` | v0.2.0 的快速求解与 v0.1 的 cvxpy 求解结果一致（误差 ≤ 0.05 N） |
 
 ```bash
 pip install -r requirements-test.txt
@@ -48,7 +51,7 @@ pytest -m sim                      # 回归测试，约 1 分钟
 GO2_DISABLE_XREF_FIX=1 pytest -m sim   # 演示：关掉 x_ref 修正，回归测试会失败
 ```
 
-测试中发现的两个已知问题用 `xfail(strict=True)` 标记（修好后测试会提醒去掉标记）：步态的摆动相位比接触状态晚一拍；静止站立时 MPC 计划的首步支撑力约为体重的 80%。
+测试中发现的已知问题用 `xfail(strict=True)` 标记（修好后测试会提醒去掉标记）。v0.1 记录了两个：步态的摆动相位比接触状态晚一拍（v0.2.0 已修复，标记已去掉）；静止站立时 MPC 计划的首步支撑力约为体重的 80%（仍在记录中）。v0.2.0 另加了求解器等价性测试，并把性能测试收紧到 20 ms 预算。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 分工说明
 
