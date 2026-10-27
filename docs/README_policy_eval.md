@@ -75,9 +75,24 @@ lerobot-eval \
 
 复核待办由 `scripts/triage_policy_failures.py` 生成，标签定义见 [视频复核规则](pusht_review_rubric.md)。当前只对种子 1003 与 1007 有完整人工观察；其余标签留空。项目经历的可投递版本见 [简历表述](policy_eval_resume.md)。
 
+按种子在同版本 PushT 环境重建了种子 1000–1019 与 2000–2019 的初始物块位置、朝向和推杆距离，分别保存到 `results/pusht_initial_scenes_*.csv`。预先固定距离与朝向阈值，再与逐回合指标结合，见 [场景几何分层](../results/pusht_scene_analysis.md)。这是几何分组，不是已经验证的难度分级。
+
+在 WSL 的 `(lerobot)` 环境中重建场景；第二批只需将起始 seed 和输出文件名改为 `2000` 与 `pusht_initial_scenes_2000-2019.csv`：
+
+```bash
+python /mnt/c/Users/qyq71/Desktop/mpc_go2/scripts/derive_pusht_scenes.py \
+  --start-seed=1000 --n-episodes=20 \
+  --output=/mnt/c/Users/qyq71/Desktop/mpc_go2/results/pusht_initial_scenes_1000-1019.csv
+```
+
+首批三组评测各保存前 10 个视频，共 30 段，已拷贝到 `results/pusht_videos/`。`scripts/make_pusht_contact_sheets.py` 从每段抽取 6 帧，生成 `results/pusht_contact_*.png` 用于复核筛选；接触图不能替代完整视频的失败原因判断。当前只有种子 1003、1007 有完整过程观察。
+
 生成完整报告与复核清单：
 
 ```bash
+python scripts/analyze_pusht_scenes.py
+python scripts/make_pusht_contact_sheets.py
+python scripts/build_pusht_review_index.py
 python scripts/build_policy_portfolio.py
 python scripts/triage_policy_failures.py \
   results/act_pusht_baseline_20.json results/act_pusht_replan10_20.json \

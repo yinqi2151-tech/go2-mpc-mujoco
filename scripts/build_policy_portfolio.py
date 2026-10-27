@@ -1,9 +1,11 @@
 """Build the evidence-backed PushT portfolio report from saved evaluation runs."""
 
+import csv
 import json
 import math
 import statistics
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +27,19 @@ def _rate(successes: int, total: int) -> str:
 
 
 def build_report(results_dir: Path) -> str:
+    with (results_dir / "pusht_initial_scenes_1000-1019.csv").open(newline="", encoding="utf-8-sig") as stream:
+        initial_scenes = list(csv.DictReader(stream))
+    with (results_dir / "pusht_initial_scenes_2000-2019.csv").open(newline="", encoding="utf-8-sig") as stream:
+        holdout_scenes = list(csv.DictReader(stream))
+    if len(initial_scenes) != 20 or len(holdout_scenes) != 20:
+        raise ValueError("initial scene reconstruction must cover both 20-seed cohorts")
+    initial_distances = Counter(row["distance_bin"] for row in initial_scenes)
+    holdout_distances = Counter(row["distance_bin"] for row in holdout_scenes)
+    with (results_dir / "pusht_video_review_index.csv").open(newline="", encoding="utf-8-sig") as stream:
+        review_index = list(csv.DictReader(stream))
+    if len(review_index) != 30:
+        raise ValueError("video review index must cover all 30 saved videos")
+    detailed_reviews = sum(row["review_level"] == "full_user_review" for row in review_index)
     baseline, base_overall = _run(results_dir / "act_pusht_baseline_20.json")
     replan, replan_overall = _run(results_dir / "act_pusht_replan10_20.json")
     paired = compare(baseline, replan)
@@ -99,7 +114,9 @@ def build_report(results_dir: Path) -> str:
         "",
         "## 失败归因与场景分层",
         "",
-        "人工复核遵循 `docs/pusht_review_rubric.md`。当前有完整文本观察的只有 ACT 对照实验的种子 1003 与 1007；其余回合不自动标记失败原因。场景层级按初始 T 块与目标位置、角度和推杆位置记录，不能用最终奖励反推初始难度。现有视频观察不足以估计各层级成功率，报告中不伪造分层数字。",
+        f"人工复核遵循 `docs/pusht_review_rubric.md`。首批三组运行各保存前 10 回合视频，共 30/60 段；六帧接触图覆盖全部 30 段已保存视频，但不是逐帧观看。具有完整过程观察的是 ACT 对照实验中种子 1003 与 1007 的 {detailed_reviews}/30 段视频；其余回合不自动标记失败原因。覆盖率见 `results/pusht_video_review_index.csv`。",
+        f"根据同版本 PushT 环境和评测种子重建了两批各 20 回合的初始位置与角度。首批物块到目标距离：近 {initial_distances['near_lt100']}、中 {initial_distances['medium_100to199']}、远 {initial_distances['far_ge200']}；独立种子批：近 {holdout_distances['near_lt100']}、中 {holdout_distances['medium_100to199']}、远 {holdout_distances['far_ge200']}。阈值与逐组结果见 [初始几何分层](../results/pusht_scene_analysis.md)。小组样本数不足以推断某一层级的普遍成功率。",
+        "视频接触图见 `results/pusht_contact_*.png`，原始视频在 `results/pusht_videos/`。初始几何分层不能用最终奖励倒推，静态接触图也不能单独证明详细失败原因。",
         "",
         "## 回归与复现",
         "",
