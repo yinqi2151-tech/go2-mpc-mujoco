@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(_HERE, ".."))
 sys.path.insert(0, _HERE)
 
 from mpc_go2.perturbation import PerturbationSampler, get_preset, rpy_to_quat_wxyz  # noqa: E402
+from mpc_go2.sim_align import GO2_ARMATURE_EST  # noqa: E402
 
 DEFAULT_POLICY_DIR = os.path.join(_HERE, "..", "policies", "genesis_go2_walking")
 DEFAULT_OUT = os.path.join(_HERE, "..", "results", "sim2sim_gap", "genesis_runs.csv")
@@ -66,7 +67,7 @@ def quat_to_rpy_batch(q):  # wxyz, [B, 4]
     return roll, pitch, yaw
 
 
-def run_condition(gs, act, cfg, friction, level, n, duration, settle):
+def run_condition(gs, act, cfg, friction, level, n, duration, settle, armature=None):
     env_cfg, obs_cfg = cfg["env_cfg"], cfg["obs_cfg"]
     dt = 0.02
     scene = gs.Scene(
@@ -85,6 +86,14 @@ def run_condition(gs, act, cfg, friction, level, n, duration, settle):
     motors = [robot.get_joint(nm).dof_start for nm in names]
     robot.set_dofs_kp([env_cfg["kp"]] * 12, motors)
     robot.set_dofs_kv([env_cfg["kd"]] * 12, motors)
+    if "calf_effort" in env_cfg:   # v2b 训练时把小腿力矩上限改成了 Go2 的 45.43
+        lim = [env_cfg["calf_effort"] if "calf" in nm else 23.7 for nm in names]
+        robot.set_dofs_force_range([-x for x in lim], lim, motors)
+    if armature is not None:       # 不指定时保持 Genesis 默认 0.1（官方示例训练时的值）
+        arm = np.atleast_1d(np.asarray(armature, dtype=float))
+        arm = np.array([arm[["hip", "thigh", "calf"].index(nm.split("_")[1])] for nm in names]) if arm.size == 3 \
+            else np.full(12, float(arm[0]))
+        robot.set_dofs_armature(arm, motors)
     default = np.array([env_cfg["default_joint_angles"][nm] for nm in names])
     s = obs_cfg["obs_scales"]
     cmd = np.array([0.5, 0.0, 0.0]) * np.array([s["lin_vel"], s["lin_vel"], s["ang_vel"]])
@@ -216,6 +225,8 @@ def main():
     ap.add_argument("--settle-time", type=float, default=3.0)
     ap.add_argument("--policy-dir", default=DEFAULT_POLICY_DIR)
     ap.add_argument("--out", default=DEFAULT_OUT)
+    ap.add_argument("--armature", default="", help="关节转子惯量：空 = Genesis 默认 0.1；一个数；或 go2est")
+    ap.add_argument("--config-name", default="genesis", help="写进 CSV 的 config 列")
     a = ap.parse_args()
 
     import genesis as gs
@@ -230,7 +241,10 @@ def main():
         for lvl in a.levels:
             for mu in a.frictions:
                 t0 = time.time()
-                rows = run_condition(gs, act, cfg, mu, lvl, a.n, a.duration, a.settle_time)
+                arm = None if not a.armature else (GO2_ARMATURE_EST if a.armature == "go2est" else float(a.armature))
+                rows = run_condition(gs, act, cfg, mu, lvl, a.n, a.duration, a.settle_time, armature=arm)
+                for r in rows:
+                    r["config"] = a.config_name
                 w.writerows(rows)
                 f.flush()
                 k = sum(r["fell"] for r in rows)

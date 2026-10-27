@@ -25,7 +25,6 @@ align=None 时环境与之前完全一致。
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-import mujoco
 import numpy as np
 
 # Genesis go2.urdf 的 effort 上限（每条腿 hip, thigh, calf）。
@@ -72,8 +71,9 @@ class SimAlignConfig:
 GENESIS_ALIGN = SimAlignConfig(armature=0.1, torque_limits="urdf", contact="genesis", actuator="pd")
 
 
-def apply_alignment(model: mujoco.MjModel, cfg: SimAlignConfig, floor_geom_id: int) -> np.ndarray:
+def apply_alignment(model: "mujoco.MjModel", cfg: SimAlignConfig, floor_geom_id: int) -> np.ndarray:
     """就地修改 MjModel，返回对齐后的关节力矩上限（MuJoCo 关节顺序 FL, FR, RL, RR）。"""
+    import mujoco   # 放在函数里：训练服务器只用 GO2_ARMATURE_EST，不需要装 MuJoCo
     if cfg.armature is not None:
         arm = np.atleast_1d(np.asarray(cfg.armature, dtype=float))
         if arm.size == 3:

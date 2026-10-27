@@ -18,3 +18,6 @@ test-reports/
 # 训练检查点（体积大、需要 torch）；导出的 policy.npz / policy_cfg.json 保留
 policies/**/*.pt
 policies/**/*.pkl
+
+# 训练日志（tensorboard、检查点）
+logs/
