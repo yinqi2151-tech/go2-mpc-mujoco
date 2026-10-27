@@ -26,6 +26,9 @@ from typing import Optional
 import numpy as np
 import mujoco
 
+from .perturbation import PerturbConfig, PerturbationSampler, rpy_to_quat_wxyz
+from .sim_align import SimAlignConfig, apply_alignment
+
 LEG_NAMES = ["FL", "FR", "RL", "RR"]
 
 _DEFAULT_SCENE = Path(__file__).resolve().parents[1] / "resources" / "robots" / "go2" / "mjcf" / "scene.xml"
@@ -40,6 +43,9 @@ class MujocoEnvConfig:
     friction: float = 0.4            # 与原配置 static_friction = 0.4 一致
     match_isaac_joints: bool = True  # 去掉 Menagerie 默认的关节阻尼/摩擦，贴近原 Isaac Gym 设置
     render: bool = False             # 云端无显示器时用 False；本地可设 True 打开可视化窗口
+    perturb: Optional[PerturbConfig] = None   # 随机扰动（初始噪声 + 推力），见 perturbation.py；None = 不扰动
+    seed: int = 0                    # 扰动的随机种子；同一个 seed 每次 reset 得到相同扰动
+    align: Optional[SimAlignConfig] = None    # 与 Genesis 训练环境逐项对齐的开关，见 sim_align.py；None = 不改
 
 
 class Go2MujocoEnv:
@@ -64,7 +70,12 @@ class Go2MujocoEnv:
             self.model.dof_frictionloss[6:] = 0.0
 
         self.foot_body_ids = [int(self.model.geom_bodyid[g]) for g in self.foot_geom_ids]
+        self.base_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "base")
+        self.total_mass = float(mujoco.mj_getTotalmass(self.model))
+        self.pushes = []                 # 本次运行的推力计划（reset 时生成）
         self.torque_limits = self.model.actuator_ctrlrange[:, 1].copy()
+        if self.cfg.align is not None:
+            self.torque_limits = apply_alignment(self.model, self.cfg.align, floor_id)
 
         self.default_joint_angles = default_joint_angles
         self.reset()
@@ -81,15 +92,43 @@ class Go2MujocoEnv:
         self.data.qpos[3:7] = [1.0, 0.0, 0.0, 0.0]
         if self.default_joint_angles is not None:
             self.data.qpos[7:19] = self.default_joint_angles
+        self.pushes = []
+        if self.cfg.perturb is not None:
+            init, self.pushes = PerturbationSampler(self.cfg.perturb, self.cfg.seed).sample(self.total_mass)
+            self.data.qpos[2] += init["height"]
+            self.data.qpos[3:7] = rpy_to_quat_wxyz(init["roll"], init["pitch"], init["yaw"])
+            self.data.qpos[7:19] += init["joint_pos"]
+            self.data.qvel[0:3] = init["lin_vel"]
+            self.data.qvel[3:6] = init["ang_vel"]
         mujoco.mj_forward(self.model, self.data)
 
     def step(self, torques: np.ndarray):
         tau = np.clip(np.asarray(torques, dtype=np.float64), -self.torque_limits, self.torque_limits)
         self.data.ctrl[:] = tau
         for _ in range(self.n_substeps):
+            if self.pushes:
+                self._apply_pushes()
             mujoco.mj_step(self.model, self.data)
         if self._viewer is not None:
             self._viewer.sync()
+
+    def step_targets(self, q_target: np.ndarray):
+        """位置伺服执行器模式（align.actuator == "pd"）：ctrl 是目标关节角，力矩由 MuJoCo 执行器计算并截断。"""
+        self.data.ctrl[:] = q_target
+        for _ in range(self.n_substeps):
+            if self.pushes:
+                self._apply_pushes()
+            mujoco.mj_step(self.model, self.data)
+        if self._viewer is not None:
+            self._viewer.sync()
+
+    def _apply_pushes(self):
+        t = self.data.time
+        f = np.zeros(3)
+        for p in self.pushes:
+            if p.t_start <= t < p.t_end:
+                f += p.force_world
+        self.data.xfrc_applied[self.base_body_id, 0:3] = f
 
     @property
     def time(self) -> float:

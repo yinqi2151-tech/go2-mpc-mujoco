@@ -31,6 +31,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from mpc_go2.mujoco_env import Go2MujocoEnv, MujocoEnvConfig
+from mpc_go2.perturbation import PRESETS, get_preset
 from mpc_go2.robot_config import get_go2_config
 from mpc_go2.mpc import MPCConfig, SimpleConvexMPC
 from mpc_go2.mpc.cheetah_gait import create_trotting_gait, create_standing_gait, OffsetDurationGait
@@ -84,6 +85,9 @@ class RunParams:
     duration: float = 12.0   # 控制阶段总时长 s（含 1.5 s 站立）
     mpc_every: int = 1       # 每几个控制周期解一次 MPC；1 = 原脚本行为（每 5 ms 都解）
     fix_xref: bool = True    # 修正：让 MPC 的位置参考随期望速度向前推进（v0.2.0 起默认开启，见 README_mujoco.md）
+    friction: float = 0.4    # 地面/足端摩擦系数（与原 Isaac Gym 配置一致）
+    perturb: str = "none"    # 随机扰动档位：none / L0 / L1 / L2（见 mpc_go2/perturbation.py）
+    seed: int = 0            # 扰动随机种子
     render: bool = False
     verbose: bool = False
     video: str = ""          # 录制 MP4 的路径；空字符串表示不录
@@ -108,7 +112,8 @@ def _run(p: RunParams):
     config = get_go2_config()
 
     # ==================== 创建环境（MuJoCo 替代 Isaac Gym） ====================
-    env = Go2MujocoEnv(MujocoEnvConfig(render=p.render), default_joint_angles=config.default_joint_angles)
+    env = Go2MujocoEnv(MujocoEnvConfig(render=p.render, friction=p.friction, perturb=get_preset(p.perturb), seed=p.seed),
+                       default_joint_angles=config.default_joint_angles)
     dt = env.cfg.control_dt
     video = open_video(p.video) if p.video else None
     torque_limits = np.minimum(config.torque_limits, env.torque_limits)
@@ -144,6 +149,8 @@ def _run(p: RunParams):
         height, vz, wz = env.base_pos[2], env.base_lin_vel[2], env.base_ang_vel[2]
         if height < 0.35 and abs(vz) < 0.05 and abs(wz) < 0.05 and stabilize_steps > 100:
             break
+
+    t_sim0 = env.time   # 落地稳定阶段用掉的仿真时间；控制循环的 t 从 0 开始，仿真时间 = t + t_sim0
 
     # 标称足端位置（相对基座），用于摆动腿落点锚定
     nominal_foot_positions_body = env.foot_positions() - env.base_pos
@@ -301,8 +308,12 @@ def _run(p: RunParams):
     if video is not None:
         video.close()
     env.close()
+    pushes = list(env.pushes)
     log = {k: np.asarray(v, dtype=float) for k, v in log.items()}
-    return log, summarize(log, p, fell, time.perf_counter() - wall0)
+    summary = summarize(log, p, fell, time.perf_counter() - wall0)
+    summary["push_times"] = ";".join(f"{q.t_start:.3f}" for q in pushes)
+    summary["t_sim_offset"] = float(t_sim0)
+    return log, summary
 
 
 VIDEO_EVERY = 5   # 控制周期 5 ms × 5 = 25 ms/帧 = 40 fps
@@ -395,6 +406,9 @@ def main():
     ap.add_argument("--fix-xref", dest="fix_xref", action="store_true",
                     help="启用位置参考修正（v0.2.0 起已是默认，保留此参数兼容旧命令）")
     ap.set_defaults(fix_xref=True)
+    ap.add_argument("--friction", type=float, default=0.4)
+    ap.add_argument("--perturb", default="none", choices=list(PRESETS), help="随机扰动档位")
+    ap.add_argument("--seed", type=int, default=0, help="扰动随机种子")
     ap.add_argument("--render", action="store_true")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--save", type=str, default="", help="把逐步日志存成 .npz")
@@ -402,6 +416,7 @@ def main():
     ap.add_argument("--plot", type=str, default="", help="保存速度/高度/俯仰曲线图，例如 results/walk.png")
     a = ap.parse_args()
     p = RunParams(vx=a.vx, duty=a.duty, duration=a.duration, mpc_every=a.mpc_every, fix_xref=a.fix_xref,
+                  friction=a.friction, perturb=a.perturb, seed=a.seed,
                   render=a.render, verbose=a.verbose, video=a.video)
     log, summary = run(p)
     for k, v in summary.items():

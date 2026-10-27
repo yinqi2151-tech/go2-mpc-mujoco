@@ -13,3 +13,8 @@ results/walk*.mp4
 # 测试输出
 test-reports/
 .pytest_cache/
+
+
+# 训练检查点（体积大、需要 torch）；导出的 policy.npz / policy_cfg.json 保留
+policies/**/*.pt
+policies/**/*.pkl
