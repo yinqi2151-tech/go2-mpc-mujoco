@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from mpc_go2.mujoco_env import Go2MujocoEnv, MujocoEnvConfig
 from mpc_go2.perturbation import PRESETS, get_preset
+from mpc_go2.sim_align import SimAlignConfig
 from mpc_go2.robot_config import get_go2_config
 from mpc_go2.mpc import MPCConfig, SimpleConvexMPC
 from mpc_go2.mpc.cheetah_gait import create_trotting_gait, create_standing_gait, OffsetDurationGait
@@ -88,6 +89,7 @@ class RunParams:
     friction: float = 0.4    # 地面/足端摩擦系数（与原 Isaac Gym 配置一致）
     perturb: str = "none"    # 随机扰动档位：none / L0 / L1 / L2（见 mpc_go2/perturbation.py）
     seed: int = 0            # 扰动随机种子
+    armature: object = -1.0  # 关节转子惯量；<0 不改（Menagerie 0.01），也可以是 (hip, thigh, calf)，见 mpc_go2/sim_align.py
     render: bool = False
     verbose: bool = False
     video: str = ""          # 录制 MP4 的路径；空字符串表示不录
@@ -112,7 +114,10 @@ def _run(p: RunParams):
     config = get_go2_config()
 
     # ==================== 创建环境（MuJoCo 替代 Isaac Gym） ====================
-    env = Go2MujocoEnv(MujocoEnvConfig(render=p.render, friction=p.friction, perturb=get_preset(p.perturb), seed=p.seed),
+    keep_arm = np.isscalar(p.armature) and p.armature < 0
+    align = None if keep_arm else SimAlignConfig(armature=p.armature)
+    env = Go2MujocoEnv(MujocoEnvConfig(render=p.render, friction=p.friction, perturb=get_preset(p.perturb), seed=p.seed,
+                                       align=align),
                        default_joint_angles=config.default_joint_angles)
     dt = env.cfg.control_dt
     video = open_video(p.video) if p.video else None

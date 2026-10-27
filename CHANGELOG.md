@@ -1,5 +1,43 @@
 # 更新记录
 
+## v0.3.0（2026-10-28）
+
+这一版加入 Genesis 训练的 RL 行走策略，做 Sim2Sim 评测、差异定位、重训，并与 MPC 同条件对比。完整过程见 [docs/sim2sim_report.md](docs/sim2sim_report.md)。MPC 控制器本身没有改动；不加新参数时，MPC 和 RL 的仿真结果与之前逐位相同。
+
+### 新增
+
+- **RL 策略部署**（`mpc_go2/rl_policy.py`、`scripts/export_rsl_policy.py`、`scripts/run_rl_policy_mujoco.py`）：rsl-rl 检查点导出为只依赖 numpy 的格式；按关节名字对齐、观测与动作缩放与训练时一致、一步动作延迟。
+- **可复现的随机扰动**（`mpc_go2/perturbation.py`）：三档初始扰动与推力，同一 seed 在所有控制器下完全相同。`run_rl_policy_mujoco.py` 和 `run_mpc_walk_mujoco.py` 都新增 `--perturb/--seed`，MPC 脚本另加 `--friction`。
+- **重复评测**（`scripts/eval_sim2sim_repeat.py`）：摔倒率给 Wilson 区间，跟踪率给 bootstrap 区间，支持断点续跑。
+- **Sim2Sim 差异定位**（`mpc_go2/sim_align.py`、`scripts/eval_sim2sim_gap.py`、`scripts/eval_genesis_reference.py`）：
+  - 转子惯量、力矩上限、接触参数、PD 实现、步长逐项可开关；
+  - Genesis 参照组；
+  - armature 扫描。
+  - 结论：决定因素是 armature（Genesis 默认 0.1，Menagerie 0.01）。
+- **Go2 转子惯量估计** `GO2_ARMATURE_EST`（≈ 0.0043 / 0.0043 / 0.0159），命令行用 `--armature go2est`。
+- **验收标准**（`scripts/check_acceptance.py`）：重训前写定，3 种 armature × 3 种摩擦 × 推力扰动，每格 100 次，只输出 PASS / FAIL。
+- **重训代码**（`training/genesis_go2/`）：
+  - v2a 只加 armature 随机化；
+  - v2b 再加摩擦、质量、电机强度、延迟、推力随机化和姿态惩罚；
+  - `run_server.sh` 单卡一键训练加评测。
+- **策略**：`policies/genesis_go2_walking`（v1，官方示例）、`genesis_go2_v2a`、`genesis_go2_v2b`。
+- **RL vs MPC 同条件对比**（`scripts/compare_rl_mpc.py`）。
+
+### 结果
+
+- v1 在 Go2 估计转子惯量下几乎每次侧翻；v2b 在 MuJoCo 的 900 次带扰动验收中 0 摔。
+- v2b 验收仍为 FAIL：速度跟踪 79–93%，要求 90–110%。原因定位到 Menagerie 足端接触模型；标准没有因此放宽。
+- 同条件下 v2b 在每一格都不比 MPC 差：不摔，跟踪率高约 9–32 个百分点。
+
+### 测试
+
+- 新增 `tests/test_perturbation.py`、`tests/test_sim_align.py`：扰动可复现、推力冲量、Wilson 区间、对齐开关不改默认模型、PD 伺服执行器公式、转子惯量估计。
+
+### 其他
+
+- 删除 PushT 评测相关文件（已迁到独立仓库），README 去掉对应段落。
+- `.gitignore` 忽略训练检查点（`policies/**/*.pt`、`*.pkl`）和 `logs/`。
+
 ## v0.2.0（2026-10-26）
 
 这一版处理 v0.1 测试中发现的问题，并优化 MPC 求解速度。每一项都有对应的测试锁住。

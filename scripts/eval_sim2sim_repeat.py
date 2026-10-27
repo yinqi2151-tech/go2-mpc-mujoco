@@ -100,7 +100,8 @@ def _fall_info(log, t_offset: float, script_fell: bool):
 
 
 def run_one(task):
-    """task = (控制器, μ, 档位, seed, mpc_every[, RL 额外参数 dict])；额外参数用于差异定位（eval_sim2sim_gap.py）。"""
+    """task = (控制器, μ, 档位, seed, mpc_every[, 额外参数 dict])；额外参数传给 RLRunParams / RunParams
+    （差异定位、验收、RL vs MPC 对比用）。"""
     controller, friction, level, seed, mpc_every = task[:5]
     rl_extra = task[5] if len(task) > 5 else {}
     row = dict(controller=controller, friction=friction, level=level, seed=seed, error="")
@@ -112,7 +113,7 @@ def run_one(task):
             stats_mask = log["t"] >= s["settle_time"]
         else:
             from run_mpc_walk_mujoco import RunParams, run as run_mpc
-            log, s = run_mpc(RunParams(friction=friction, perturb=level, seed=seed, mpc_every=mpc_every))
+            log, s = run_mpc(RunParams(friction=friction, perturb=level, seed=seed, mpc_every=mpc_every, **rl_extra))
             t_offset = s["t_sim_offset"]
             # 与 run_mpc_walk_mujoco.summarize 相同的稳态窗口：小跑且指令达到目标的 97%
             stats_mask = (log["mode"] == 1) & (log["vx_cmd"] >= 0.97 * s["vx"])

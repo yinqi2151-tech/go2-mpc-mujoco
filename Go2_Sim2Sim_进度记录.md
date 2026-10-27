@@ -1,4 +1,4 @@
-# Go2 Sim2Sim 进度记录（2026-10-27 深夜更新：v2a / v2b 重训与验收）
+# Go2 Sim2Sim 进度记录（2026-10-28 更新：v2a / v2b 重训与验收、RL vs MPC 对比、v0.3.0）
 
 ## 1. 现在跑的 RL 策略是什么
 - 来源：Genesis 官方示例 `examples/locomotion/go2_train.py`（Genesis 1.4.5，rsl-rl-lib 5.x，PPO）。训练框架、奖励函数、网络结构都是官方的，不是自己设计的（面试如实说）。
@@ -111,13 +111,20 @@ MPC 摔倒率（n=20）：μ 0.4–1.0 的 L1、L2 全是 0/20（每格上界 16
   → 变慢完全来自 **Menagerie 的足端接触模型**（condim=6 的扭转/滚动摩擦、很软的 solimp、椭圆锥 + impratio=100），和 PD、步长无关。换成 Genesis 接触后 v2b 全部在 90–110% 以内。
 - 按事先写定的规则，v2b 仍判 FAIL，标准不改。要不要“过”，取决于哪种接触模型更接近真实 Go2 的橡胶脚 —— 只有真机数据能回答。
 
-## 9. 还没做
-1. 找出 Menagerie 接触里具体是哪一项让机器人变慢（滚动摩擦 0.01？扭转摩擦？软 solimp？impratio？），逐项消融，每项 30 次。
-2. v2c：在 Genesis 里打开扭转/滚动摩擦（`enable_torsional_friction` / `enable_rolling_friction`）并随机化接触软硬，让策略对接触模型也鲁棒；用同一套验收再测。
-3. RL（v2b）vs MPC 同条件对比；README / 报告 / pytest；发 v0.3.0。
-4. MPC 高摩擦下跟踪率下降（也可能是同一个接触模型问题，值得一起看）。
+## 9. RL vs MPC 同条件对比与 v0.3.0（已完成）
+- `scripts/compare_rl_mpc.py`：MuJoCo 原设置，L2，20 s，armature ∈ {Go2 估计值, 0.01} × μ ∈ {0.4, 0.6, 1.0}。MPC 用 50 Hz（每 4 个控制周期解一次，与 RL 同频，也是能实时运行的频率），每格 30 次；RL 复用验收评测数据，和 MPC 用同样的前 30 个 seed 配对。
+- 结果：v2b 每格 0 摔，跟踪率 82–92.5%；MPC 跟踪率 52.8–79.9%，在 Go2 估计 armature、μ=1.0 下 30 次摔 4 次（都是推力后约 1 s 俯仰超限）；v1 在 Go2 估计值下几乎全摔。v2b 每一格都不比 MPC 差，跟踪率高约 9–32 个百分点，横滚 RMS 只有 MPC 的约五分之一。计算量：RL 一次前向约 0.09 ms，MPC 一次求解约 9 ms。
+- 文档：`docs/sim2sim_report.md`（完整报告）、README 新增“Sim2Sim”一节、CHANGELOG v0.3.0。
+- 测试：96 个功能测试全部通过。性能测试 `test_mpc_solve_time` 在云端机器上 p95 = 25 ms > 20 ms，但这台机器当天整体偏慢（cvxpy 基准也从 30 ms 变成 46 ms，加速比 3.1 倍仍合格），MPC 代码没有改动；在笔记本上用 `pytest -m perf -s` 复核一次。
+- 发布：PushT 删除单独提交；`main` 快进到 `sim2sim-eval`；打标签 `v0.3.0`。
 
-## 10. Git 注意
+## 10. 还没做（加分项）
+1. 找出 Menagerie 接触里具体是哪一项让机器人变慢（滚动摩擦 0.01？扭转摩擦？软 solimp？impratio？），逐项消融，每项 30 次。
+2. v2c：在 Genesis 里打开扭转/滚动摩擦（`enable_torsional_friction` / `enable_rolling_friction`）并随机化接触软硬，用同一套验收再测。
+3. MPC 高摩擦下变慢、对转子惯量敏感（Go2 估计值、μ=1.0 被推会摔）：可能和第 1 条是同一个接触模型问题。
+4. 真机：测速度和转子惯量（或从 Unitree 拿电机参数）。
+
+## 11. Git 注意
 仓库里有一批 PushT 文件删除已经 staged（迁去单独仓库）。提交 Sim2Sim 时不要把这些一起提交，除非就是想一起处理。
 - Sim2Sim 的工作提交在分支 `sim2sim-eval`（从 `codex/policy-eval-portfolio` 拉出），只用指定路径提交，staged 的 PushT 删除仍保留在暂存区，没有进提交。
 - 工作区里 `CHANGELOG.md` 被意外改坏（换行变成 \r\r、空行丢失、加了 BOM，内容本身没变），`README.md` 的改动是 PushT 迁移相关，这两个都没有提交。
