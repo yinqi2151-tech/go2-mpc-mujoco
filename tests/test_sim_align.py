@@ -55,3 +55,15 @@ def test_genesis_contact_disables_self_collision():
     for g in robot:
         assert (m.geom_contype[g] & m.geom_conaffinity[floor]) or (m.geom_contype[floor] & m.geom_conaffinity[g])
         assert not (m.geom_contype[g] & m.geom_conaffinity[robot[0]]) and not (m.geom_contype[robot[0]] & m.geom_conaffinity[g])
+
+
+def test_per_joint_armature_and_go2_estimate():
+    from mpc_go2.sim_align import GO2_ARMATURE_EST
+    env = Go2MujocoEnv(MujocoEnvConfig(align=SimAlignConfig(armature=GO2_ARMATURE_EST)))
+    arm = env.model.dof_armature[6:].reshape(4, 3)
+    assert np.allclose(arm, np.array(GO2_ARMATURE_EST)[None, :])
+    # 反射惯量 = 转子惯量 × 减速比²；小腿多一级约 1.92 的减速
+    assert GO2_ARMATURE_EST[0] == pytest.approx(1.11842e-4 * (1 + 47 / 9) ** 2)
+    assert GO2_ARMATURE_EST[2] / GO2_ARMATURE_EST[0] == pytest.approx((45.43 / 23.7) ** 2)
+    with pytest.raises(ValueError):
+        Go2MujocoEnv(MujocoEnvConfig(align=SimAlignConfig(armature=(0.01, 0.02))))

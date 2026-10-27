@@ -1,4 +1,4 @@
-# Go2 Sim2Sim 进度记录（2026-10-27，晚上更新：多次重复评测 + 差异定位完成）
+# Go2 Sim2Sim 进度记录（2026-10-27，晚上更新：重复评测、差异定位、真实转子惯量估计、验收标准）
 
 ## 1. 现在跑的 RL 策略是什么
 - 来源：Genesis 官方示例 `examples/locomotion/go2_train.py`（Genesis 1.4.5，rsl-rl-lib 5.x，PPO）。训练框架、奖励函数、网络结构都是官方的，不是自己设计的（面试如实说）。
@@ -71,10 +71,32 @@ MPC 摔倒率（n=20）：μ 0.4–1.0 的 L1、L2 全是 0/20（每格上界 16
   3. 横滚惩罚、摩擦随机化仍然值得加，但不是这次摔倒的主因。
 - 残差：全部对齐后跟踪率和 Genesis 差 −7 到 +4 个百分点（积分器近似、接触求解器实现、总质量 15.02 vs 15.21 kg 等），对摔倒没有影响。
 
-## 6. 还没做
-1. 服务器重训：armature 用真实值或随机化（0.01–0.1）+ 摩擦/质量/推力/电机强度/延迟随机化 + 多速度指令 + 姿态惩罚；用 `eval_sim2sim_repeat.py`（MuJoCo 原设置）和 `eval_genesis_reference.py`（训练仿真器）前后对比。目标：MuJoCo 原设置（armature 0.01）下也不摔。
-2. MPC 高摩擦下跟踪率下降、μ=1.2 被推会摔：看是不是摆动腿绊脚（MPC 一直用的是 armature 0.01 的模型，和这次结论无关）。
+## 6. Go2 真实转子惯量（估计）
+- 公式：关节上的等效转子惯量 = 电机转子惯量 × 减速比²。
+- 转子惯量 1.11842e-4 kg·m²：Unitree 官方 `unitree_ros/robots/go2_description/urdf` 里 `*_rotor` 连杆绕转轴的惯量。这个数和 Go1 的 URDF 完全一样，可能是沿用而不是实测。
+- 减速比：髋/大腿 ≈ 6.22（Simplexity 拆解：单级行星，太阳轮 9 齿、齿圈 47 齿，1+47/9）；小腿再乘 ≈ 1.92（IsaacLab 注释“膝部额外 1.92:1 减速”；力矩上限 45.43/23.7 和速度上限 30.1/15.7 的比例都是 1.92）→ ≈ 11.93。
+- 结果：髋/大腿 ≈ 0.0043，小腿 ≈ 0.0159（`mpc_go2/sim_align.py` 的 `GO2_ARMATURE_EST`，命令行 `--armature go2est`）。没算行星轮、行星架的惯量，所以偏小；整体不确定度估计在 ±50% 量级。
+- 对照：Menagerie 的 0.01 在 Go1、A1、Go2 三个模型里完全相同，是通用默认值；mjlab 给 Go1 用同样方法算出 0.004 / 0.009；mujoco_playground 的 Go1 用 0.005；Genesis 训练用的 0.1 比估计值大 6–23 倍。
+- 顺带发现：Genesis 自带 go2.urdf 的小腿力矩上限 35.55 其实是 Go1 的值；Unitree 官方 Go2 URDF、Menagerie、IsaacLab 都是 45.43。
+- **用估计值跑当前策略：1.2 s 就侧翻**（下表 go2est 一行几乎全摔）→ 当前策略上真机大概率不行。
+
+## 7. 验收标准（重训前写定，`scripts/check_acceptance.py`）
+- 条件：MuJoCo 原设置（Menagerie 接触、显式 1 kHz PD、Menagerie 力矩上限），只改 armature ∈ {go2est, 0.01, 0.1}；μ ∈ {0.4, 0.6, 1.0}；扰动 L2；每格 100 次 × 20 s。另外用 Genesis 参照组按同一规则检查训练仿真器本身。
+- 每一格都要满足：C1 摔倒率 Wilson 95% 上界 < 10%（100 次最多摔 4 次）；C2 没摔运行的平均跟踪率在 90%–110%（不许太慢，也不许明显超速）。全部格子通过才算 PASS。
+- 当前策略（v1，Genesis 官方示例）：**FAIL**，结果在 `results/acceptance/v1_genesis_official/report.md`：
+  - go2est：99–100% 摔；0.01：30–97% 摔；0.1：0 摔，但 μ=1.0 跟踪率 84%（C2 不过）。
+  - Genesis 里也不合格：0 摔，但 μ=0.6、1.0 跟踪率 119%、110%（超速，C2 不过）。
+
+## 8. 还没做
+1. 服务器重训（拆两版，便于区分每项改动的作用）：
+   - v2a：只改 armature —— 在 [0.004, 0.1] 内随机（每个环境 reset 时采样，覆盖 go2est 到 Genesis 默认），其他保持官方设置。
+   - v2b：v2a + 摩擦（0.3–1.2）、质量、推力、电机强度、动作延迟随机化 + 横滚/俯仰惩罚 + 多速度指令 + 更多轮数；小腿力矩上限改成 45.43。
+   - 每版都跑 `check_acceptance.py`（MuJoCo）和 `eval_genesis_reference.py`（Genesis）。
+2. MPC 高摩擦下跟踪率下降、μ=1.2 被推会摔：看是不是摆动腿绊脚。
 3. README / 报告、发 v0.3.0。
 
-## 7. Git 注意
+## 9. Git 注意
 仓库里有一批 PushT 文件删除已经 staged（迁去单独仓库）。提交 Sim2Sim 时不要把这些一起提交，除非就是想一起处理。
+- Sim2Sim 的工作提交在分支 `sim2sim-eval`（从 `codex/policy-eval-portfolio` 拉出），只用指定路径提交，staged 的 PushT 删除仍保留在暂存区，没有进提交。
+- 工作区里 `CHANGELOG.md` 被意外改坏（换行变成 \r\r、空行丢失、加了 BOM，内容本身没变），`README.md` 的改动是 PushT 迁移相关，这两个都没有提交。
+- `legged_gym/`、`setup.py` 等一批文件在 git status 里显示为修改，只是换行符（CRLF/LF）不同，内容没变，也没有提交。

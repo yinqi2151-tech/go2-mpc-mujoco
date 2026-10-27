@@ -23,18 +23,33 @@ align=None 时环境与之前完全一致。
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 import mujoco
 import numpy as np
 
-# Genesis go2.urdf 的 effort 上限（每条腿 hip, thigh, calf）
+# Genesis go2.urdf 的 effort 上限（每条腿 hip, thigh, calf）。
+# 注意小腿 35.55 其实是 Go1 的数值；Unitree 官方 go2_description.urdf、Menagerie、IsaacLab 的 Go2 都是 45.43。
 URDF_TORQUE_LIMITS = np.tile([23.7, 23.7, 35.55], 4)
+
+# Go2 关节等效转子惯量的估计值（每条腿 hip, thigh, calf），单位 kg·m²：
+#   反射惯量 = 转子惯量 × 减速比²
+#   转子惯量 1.11842e-4：unitree_ros/go2_description.urdf 里 *_rotor 连杆绕转轴的惯量（与 Go1 URDF 的数值相同，
+#                        可能是沿用而非实测）
+#   减速比：髋/大腿 1 + 47/9 ≈ 6.22（单级行星，拆解测得的齿数）；小腿再乘 45.43/23.7 ≈ 1.92（膝部二级减速，
+#           与力矩上限、速度上限 30.1/15.7 的比例一致）→ ≈ 11.93
+#   未计入行星轮/行星架的惯量，所以是偏小的估计。
+_ROTOR_INERTIA = 1.11842e-4
+_HIP_RATIO = 1.0 + 47.0 / 9.0
+_KNEE_RATIO = _HIP_RATIO * 45.43 / 23.7
+GO2_ARMATURE_EST = (_ROTOR_INERTIA * _HIP_RATIO ** 2, _ROTOR_INERTIA * _HIP_RATIO ** 2,
+                    _ROTOR_INERTIA * _KNEE_RATIO ** 2)   # ≈ (0.0043, 0.0043, 0.0159)
 
 
 @dataclass
 class SimAlignConfig:
-    armature: Optional[float] = None      # None = 保持模型里的值（0.01）；Genesis = 0.1
+    armature: Optional[Union[float, Sequence[float]]] = None   # None = 保持模型里的值（0.01）；Genesis = 0.1；
+                                                              # 也可给 (hip, thigh, calf) 三个值，四条腿相同
     torque_limits: str = "menagerie"      # "menagerie"（23.7/23.7/45.43） 或 "urdf"（23.7/23.7/35.55）
     contact: str = "menagerie"            # "menagerie" 或 "genesis"
     actuator: str = "torque"              # "torque"：脚本自己算 PD 力矩（显式）；"pd"：MuJoCo 位置伺服执行器，kv 隐式
@@ -44,7 +59,7 @@ class SimAlignConfig:
     def describe(self) -> str:
         parts = []
         if self.armature is not None:
-            parts.append(f"armature={self.armature:g}")
+            parts.append(f"armature={self.armature}")
         if self.torque_limits != "menagerie":
             parts.append(f"torque={self.torque_limits}")
         if self.contact != "menagerie":
@@ -60,7 +75,12 @@ GENESIS_ALIGN = SimAlignConfig(armature=0.1, torque_limits="urdf", contact="gene
 def apply_alignment(model: mujoco.MjModel, cfg: SimAlignConfig, floor_geom_id: int) -> np.ndarray:
     """就地修改 MjModel，返回对齐后的关节力矩上限（MuJoCo 关节顺序 FL, FR, RL, RR）。"""
     if cfg.armature is not None:
-        model.dof_armature[6:] = cfg.armature
+        arm = np.atleast_1d(np.asarray(cfg.armature, dtype=float))
+        if arm.size == 3:
+            arm = np.tile(arm, 4)
+        if arm.size not in (1, 12):
+            raise ValueError(f"armature 需要 1 个、3 个（hip, thigh, calf）或 12 个值，收到 {arm.size} 个")
+        model.dof_armature[6:] = arm
 
     if cfg.torque_limits == "urdf":
         limits = URDF_TORQUE_LIMITS.copy()

@@ -61,7 +61,7 @@ class RLRunParams:
     perturb: str = "none"         # 扰动档位：none / L0 / L1 / L2（见 mpc_go2/perturbation.py）
     seed: int = 0                 # 扰动随机种子
     # ---- 与 Genesis 对齐的开关（见 mpc_go2/sim_align.py），默认值 = 原来的 MuJoCo 设置 ----
-    armature: float = -1.0        # <0 表示不改（Menagerie 0.01）；Genesis 默认 0.1
+    armature: object = -1.0       # <0 表示不改（Menagerie 0.01）；Genesis 默认 0.1；也可以是 (hip, thigh, calf)
     torque_limits: str = "menagerie"   # 或 "urdf"
     contact: str = "menagerie"    # 或 "genesis"
     actuator: str = "torque"      # 或 "pd"（MuJoCo 位置伺服，kd 隐式）
@@ -71,9 +71,10 @@ class RLRunParams:
 
 
 def _align_cfg(p: "RLRunParams"):
-    if p.armature < 0 and p.torque_limits == "menagerie" and p.contact == "menagerie" and p.actuator == "torque":
+    keep_armature = np.isscalar(p.armature) and p.armature < 0
+    if keep_armature and p.torque_limits == "menagerie" and p.contact == "menagerie" and p.actuator == "torque":
         return None
-    return SimAlignConfig(armature=None if p.armature < 0 else p.armature, torque_limits=p.torque_limits,
+    return SimAlignConfig(armature=None if keep_armature else p.armature, torque_limits=p.torque_limits,
                           contact=p.contact, actuator=p.actuator)
 
 
@@ -253,7 +254,8 @@ def main():
     ap.add_argument("--init-height", type=float, default=0.42)
     ap.add_argument("--perturb", default="none", choices=list(PRESETS), help="随机扰动档位")
     ap.add_argument("--seed", type=int, default=0, help="扰动随机种子")
-    ap.add_argument("--armature", type=float, default=-1.0, help="关节转子惯量；<0 不改（0.01），Genesis 默认 0.1")
+    ap.add_argument("--armature", default="-1",
+                    help="关节转子惯量：一个数，或 hip,thigh,calf 三个数，或 go2est（Go2 估计值）；<0 不改（0.01）")
     ap.add_argument("--torque-limits", default="menagerie", choices=["menagerie", "urdf"])
     ap.add_argument("--contact", default="menagerie", choices=["menagerie", "genesis"])
     ap.add_argument("--actuator", default="torque", choices=["torque", "pd"])
@@ -264,6 +266,9 @@ def main():
     ap.add_argument("--plot", default="", help="保存曲线图，例如 results/rl_walk.png")
     ap.add_argument("--save", default="", help="把逐步日志存成 .npz")
     a = ap.parse_args()
+    from mpc_go2.sim_align import GO2_ARMATURE_EST
+    a.armature = GO2_ARMATURE_EST if a.armature == "go2est" else \
+        (tuple(float(v) for v in a.armature.split(",")) if "," in a.armature else float(a.armature))
     if a.genesis_like:
         a.armature, a.torque_limits, a.contact, a.actuator, a.physics_dt = 0.1, "urdf", "genesis", "pd", 0.01
     p = RLRunParams(vx=a.vx, duration=a.duration, settle_time=a.settle_time, physics_dt=a.physics_dt,
