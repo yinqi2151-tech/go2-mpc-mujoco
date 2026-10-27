@@ -1,0 +1,11 @@
+﻿seed,episode_ix,priority,abs_delta_max_reward,baseline_success,candidate_success,baseline_max_reward,candidate_max_reward,baseline_video,candidate_video,initial_distance,initial_orientation,pusher_position,baseline_failure_reason,candidate_failure_reason,observation,hypothesis
+1007,7,success_changed,0.985289,False,True,0.014711,1.0,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_7.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_7.mp4,,,,,,,
+1000,0,reward_gap,0.526401,False,False,0.348228,0.87463,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_0.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_0.mp4,,,,,,,
+1003,3,reward_gap,0.261291,False,False,0.632785,0.371494,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_3.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_3.mp4,,,,,,,
+1006,6,reward_gap,0.201276,False,False,0.363224,0.161948,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_6.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_6.mp4,,,,,,,
+1008,8,reward_gap,0.196305,False,False,0.141316,0.337621,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_8.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_8.mp4,,,,,,,
+1002,2,reward_gap,0.099057,False,False,0.026237,0.125294,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_2.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_2.mp4,,,,,,,
+1004,4,reward_gap,0.090773,False,False,0.283155,0.192383,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_4.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_4.mp4,,,,,,,
+1009,9,reward_gap,0.063013,False,False,0.493253,0.556266,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_9.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_9.mp4,,,,,,,
+1001,1,reward_gap,0.024034,False,False,0.169047,0.145013,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_1.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_1.mp4,,,,,,,
+1005,5,reward_gap,0.0,False,False,0.0,0.0,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_5.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_5.mp4,,,,,,,

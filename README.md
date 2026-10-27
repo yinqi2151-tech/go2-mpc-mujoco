@@ -16,6 +16,12 @@ Unitree Go2 四足机器人的凸 MPC 行走控制器。原版在 Isaac Gym 中�
 
 详细说明见 [README_mujoco.md](README_mujoco.md)，完整评测见 [results/evaluation_report.md](results/evaluation_report.md)。
 
+## 具身策略评测扩展（LeRobot / PushT）
+
+基于本项目的评测经验，另搭建了 PushT 仿真策略评测流程，对开源 ACT 与 Diffusion Policy 权重做固定种子对照，并对 ACT 的动作重规划频率做消融、独立种子复测和动作扰动实验。统计区间、视频复核及重复性限制见 [评测报告](docs/policy_eval_report.md)；复现命令见 [评测说明](docs/README_policy_eval.md)。这是平面推物任务，与上面的 Go2 行走控制指标分别定义。
+
+![确定性协议下 ACT 动作周期逐种子对照](results/pusht_deterministic_pairs.png)
+
 ![32 组评测](results/fig_sweep.png)
 
 ## 快速开始（不需要 GPU，Windows / Linux / macOS 均可）

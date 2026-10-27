@@ -1,0 +1,21 @@
+seed,task_group,task_id,episode_ix,baseline_success,candidate_success,baseline_max_reward,candidate_max_reward,delta_max_reward,baseline_video,candidate_video,baseline_observation,candidate_observation,interpretation
+1000,pusht,0,0,False,False,0.3482282284983539,0.8746297200593985,0.5264014915610447,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_0.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_0.mp4,,,
+1001,pusht,0,1,False,False,0.16904714585666877,0.14501302709440747,-0.024034118762261303,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_1.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_1.mp4,,,
+1002,pusht,0,2,False,False,0.026236828850224294,0.12529399682642883,0.09905716797620454,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_2.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_2.mp4,,,
+1003,pusht,0,3,False,False,0.6327850872741818,0.3714944492082214,-0.2612906380659604,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_3.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_3.mp4,与可移动 T 接触次数较多且变化较快；观察者认为最后画面不如 10 步接近目标,一度接近目标；随后尝试推动看起来像目标标记的 T 但没有效果；再返回可移动 T 时超时,可能存在无效动作或目标误判；最后画面的主观接近程度与全程最高奖励不同需核对时序
+1004,pusht,0,4,False,False,0.28315535127524455,0.19238283848035592,-0.09077251279488863,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_4.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_4.mp4,,,
+1005,pusht,0,5,False,False,0.0,0.0,0.0,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_5.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_5.mp4,,,
+1006,pusht,0,6,False,False,0.36322443003587723,0.16194829615064116,-0.20127613388523607,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_6.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_6.mp4,,,
+1007,pusht,0,7,False,True,0.014710769021574283,1.0,0.9852892309784257,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_7.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_7.mp4,两个 T 初始近似平行但始终未重合；移动 T 最后被推得更远,第一次接触已接近目标但未重合；第二次调整后成功,缩短连续执行步数可能提供了再次修正的机会；只在此回合观察到
+1008,pusht,0,8,False,False,0.1413163720310934,0.33762137047105545,0.19630499843996205,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_8.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_8.mp4,,,
+1009,pusht,0,9,False,False,0.4932528023718277,0.556266093259499,0.06301329088767132,outputs/eval/act_pusht_baseline_20/videos/pusht_0/eval_episode_9.mp4,outputs/eval/act_pusht_replan10_20/videos/pusht_0/eval_episode_9.mp4,,,
+1010,pusht,0,10,False,False,0.44005413015585587,0.9642037075944863,0.5241495774386304,,,,,
+1011,pusht,0,11,False,False,0.24579788184458343,0.15067843384488216,-0.09511944799970126,,,,,
+1012,pusht,0,12,False,False,0.6644854550542063,0.156219758595063,-0.5082656964591433,,,,,
+1013,pusht,0,13,False,False,0.12778508984003448,0.15370822190353794,0.025923132063503468,,,,,
+1014,pusht,0,14,False,False,0.22997350158140412,0.18705068764761706,-0.04292281393378705,,,,,
+1015,pusht,0,15,False,False,0.682403359062724,0.9436131415553177,0.26120978249259375,,,,,
+1016,pusht,0,16,False,False,0.4240897918110103,0.9881963419305473,0.564106550119537,,,,,
+1017,pusht,0,17,False,False,0.5656764626517414,0.42763793307450926,-0.13803852957723217,,,,,
+1018,pusht,0,18,False,False,0.0,0.6248350095833238,0.6248350095833238,,,,,
+1019,pusht,0,19,False,False,0.20263565590777827,0.9773817663556209,0.7747461104478426,,,,,

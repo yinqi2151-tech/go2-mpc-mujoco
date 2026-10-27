@@ -1,0 +1,131 @@
+{
+  "per_task": [
+    {
+      "task_group": "pusht",
+      "task_id": 0,
+      "metrics": {
+        "sum_rewards": [
+          77.79703987503872,
+          68.72013769302883,
+          25.521245974034002,
+          100.81009103066947,
+          80.76315913489552,
+          89.93910244270018,
+          70.44129365401855,
+          101.54679357429717,
+          1.0005444747410064,
+          98.90773038087681,
+          3.1127147576738023,
+          131.74273722131412,
+          86.67926376674231,
+          23.954495267127164,
+          47.60471605818982,
+          41.50892440640013,
+          49.16579278096883,
+          92.01409292482154,
+          0.0,
+          147.9724433209086
+        ],
+        "max_rewards": [
+          0.5794319274280524,
+          0.2517015902280738,
+          0.26443250556411413,
+          0.8419416732670166,
+          0.6526875198421733,
+          0.39693645749900874,
+          0.29375880999083714,
+          0.4305012422418185,
+          0.10658587601703103,
+          0.5434013336566699,
+          0.12391706918586584,
+          0.9187431226210621,
+          0.5655036756567667,
+          0.4183107873773227,
+          0.4046863774404313,
+          0.573803322977312,
+          0.2216375369156614,
+          1.0,
+          0.0,
+          0.5231175386996229
+        ],
+        "successes": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          false,
+          false
+        ],
+        "video_paths": [
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_0.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_1.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_2.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_3.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_4.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_5.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_6.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_7.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_8.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_9.mp4"
+        ],
+        "predicted_video_paths": []
+      }
+    }
+  ],
+  "per_group": {
+    "pusht": {
+      "avg_sum_reward": 66.96011593692234,
+      "avg_max_reward": 0.45555491833044204,
+      "pc_success": 5.0,
+      "n_episodes": 20,
+      "video_paths": [
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_0.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_1.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_2.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_3.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_4.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_5.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_6.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_7.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_8.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_9.mp4"
+      ],
+      "predicted_video_paths": []
+    }
+  },
+  "overall": {
+    "avg_sum_reward": 66.96011593692234,
+    "avg_max_reward": 0.45555491833044204,
+    "pc_success": 5.0,
+    "n_episodes": 20,
+    "eval_s": 54.915634870529175,
+    "eval_ep_s": 2.7457817792892456,
+    "video_paths": [
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_0.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_1.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_2.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_3.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_4.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_5.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_6.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_7.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_8.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_noise5_20/videos/pusht_0/eval_episode_9.mp4"
+    ],
+    "predicted_video_paths": []
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "policy": "DanqingZ/diffusion_pusht",
+  "task": "pusht",
+  "start_seed": 1000,
+  "n_episodes": 20,
+  "batch_size": 1,
+  "use_async_envs": false,
+  "avg_sum_reward": 15.612842429386058,
+  "avg_max_reward": 0.2244655517489489,
+  "pc_success": 0.0,
+  "eval_s": 1200.4748663902283,
+  "eval_ep_s": 60.023743343353274,
+  "source": "LeRobot 0.6.1 Overall Aggregated Metrics pasted by the user on 2026-10-26",
+  "raw_eval_info_available": true
+}

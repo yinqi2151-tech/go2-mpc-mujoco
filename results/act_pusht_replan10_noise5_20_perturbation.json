@@ -1,0 +1,8 @@
+{
+  "type": "gaussian_action_noise",
+  "std": 5.0,
+  "applied_at": "after_policy_postprocessing_before_env_step",
+  "noise_seed_rule": "episode_seed + 100000",
+  "batch_size": 1,
+  "le_robot_version": "0.6.1"
+}

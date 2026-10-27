@@ -1,0 +1,47 @@
+{
+  "per_task": [
+    {
+      "task_group": "pusht",
+      "task_id": 0,
+      "metrics": {
+        "sum_rewards": [
+          79.27339743474134
+        ],
+        "max_rewards": [
+          0.39218929014229426
+        ],
+        "successes": [
+          false
+        ],
+        "video_paths": [
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_clean_smoke3000_repeat/videos/pusht_0/eval_episode_0.mp4"
+        ],
+        "predicted_video_paths": []
+      }
+    }
+  ],
+  "per_group": {
+    "pusht": {
+      "avg_sum_reward": 79.27339743474134,
+      "avg_max_reward": 0.39218929014229426,
+      "pc_success": 0.0,
+      "n_episodes": 1,
+      "video_paths": [
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_clean_smoke3000_repeat/videos/pusht_0/eval_episode_0.mp4"
+      ],
+      "predicted_video_paths": []
+    }
+  },
+  "overall": {
+    "avg_sum_reward": 79.27339743474134,
+    "avg_max_reward": 0.39218929014229426,
+    "pc_success": 0.0,
+    "n_episodes": 1,
+    "eval_s": 3.670750856399536,
+    "eval_ep_s": 3.6707513332366943,
+    "video_paths": [
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_clean_smoke3000_repeat/videos/pusht_0/eval_episode_0.mp4"
+    ],
+    "predicted_video_paths": []
+  }
+}

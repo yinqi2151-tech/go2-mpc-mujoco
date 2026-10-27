@@ -1,0 +1,59 @@
+{
+  "per_task": [
+    {
+      "task_group": "pusht",
+      "task_id": 0,
+      "metrics": {
+        "sum_rewards": [
+          47.227397427996124,
+          147.1128212222053,
+          18.156696556614833
+        ],
+        "max_rewards": [
+          0.1774878915337558,
+          0.7050256634563118,
+          0.5352603221831835
+        ],
+        "successes": [
+          false,
+          false,
+          false
+        ],
+        "video_paths": [
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_0.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_1.mp4",
+          "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_2.mp4"
+        ],
+        "predicted_video_paths": []
+      }
+    }
+  ],
+  "per_group": {
+    "pusht": {
+      "avg_sum_reward": 70.83230506893875,
+      "avg_max_reward": 0.4725912923910837,
+      "pc_success": 0.0,
+      "n_episodes": 3,
+      "video_paths": [
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_0.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_1.mp4",
+        "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_2.mp4"
+      ],
+      "predicted_video_paths": []
+    }
+  },
+  "overall": {
+    "avg_sum_reward": 70.83230506893875,
+    "avg_max_reward": 0.4725912923910837,
+    "pc_success": 0.0,
+    "n_episodes": 3,
+    "eval_s": 8.666069746017456,
+    "eval_ep_s": 2.888690153757731,
+    "video_paths": [
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_0.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_1.mp4",
+      "/home/qyq71/embodied_eval/outputs/eval/act_pusht_deterministic10_repeat3/videos/pusht_0/eval_episode_2.mp4"
+    ],
+    "predicted_video_paths": []
+  }
+}
